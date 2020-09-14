@@ -13,8 +13,9 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 in_file = ''
-module_name = 'ASD 15-4-C10'
-method = 'ZW RFM'
+module_name = 'ASD 15-3-C4'
+method = 'Mitutoyo Measuring Microscope'
+# method = 'ZW RFM'
 origin = 'top left'
 
 
@@ -110,31 +111,32 @@ def plot_title_page(X, Y, Z, pdf):
 
     pdf.savefig(fig)
 
-def plot_surface(X, Y, Z, pdf, projections=True, live=True):
+def plot_surface(X, Y, Z, pdf, projections=True, live=True, colorbar=False):
     fig = plt.figure(figsize=plt.figaspect(0.5))
     ax = plt.axes(projection='3d')
     
-    cs = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none')
+    cs = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', alpha=0.75, shade=True)
 
     if projections:
         ax.contour(X, Y, Z, zdir='x', offset=ax.get_xlim()[0], cmap='viridis')
         ax.contour(X, Y, Z, zdir='y', offset=ax.get_ylim()[1], cmap='viridis')
 
-    # Angle for PDF output
-    ax.view_init(45, -15)
-
     # Set module to correct aspect ratio
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
     # ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]]*3)
 
-    cb = fig.colorbar(cs, shrink=0.75, aspect=50, orientation='horizontal')
-    cb.set_label('z [$\mu$m]')
+    if colorbar:
+        cb = fig.colorbar(cs, shrink=0.75, aspect=50, orientation='horizontal')
+        cb.set_label('z [$\mu$m]')
 
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
     ax.set_zlabel('z [$\mu$m]')
 
     ax.set_title(module_name)
+
+    # Angle for PDF output
+    ax.view_init(45, -15)
 
     if live:
         plt.show()
@@ -152,9 +154,6 @@ def plot_wireframe(X, Y, Z, pdf, projections=True):
         ax.contour(X, Y, Z, zdir='x', offset=ax.get_xlim()[0], cmap='viridis')
         ax.contour(X, Y, Z, zdir='y', offset=ax.get_ylim()[1], cmap='viridis')
 
-    # Angle for PDF output
-    ax.view_init(45, -15)
-
     # Set module to correct aspect ratio
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
     # ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]]*3)
@@ -164,6 +163,9 @@ def plot_wireframe(X, Y, Z, pdf, projections=True):
     ax.set_zlabel('z [$\mu$m]')
 
     ax.set_title(module_name)
+
+    # Angle for PDF output
+    ax.view_init(45, -15)
 
     pdf.savefig(fig, bbox_inches='tight')
 
