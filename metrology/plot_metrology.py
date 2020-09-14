@@ -193,7 +193,7 @@ def plot_contour(X, Y, Z, pdf):
 
 if __name__ == '__main__':
     X, Y, Z = get_data(in_file)
-    pdf = PdfPages(os.path.join(os.path.dirname(in_file), '_'.join(module_name.split(' ')) + '.pdf'))
+    pdf = PdfPages(os.path.join(os.path.dirname(in_file), '_'.join(os.path.split(in_file)[-1].split('.')[0:-1]) + '.pdf'))
     plot_title_page(X, Y, Z, pdf)
     plot_surface(X, Y, Z, pdf, live=True)
     plot_wireframe(X, Y, Z, pdf)
