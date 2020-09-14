@@ -110,12 +110,15 @@ def plot_title_page(X, Y, Z, pdf):
 
     pdf.savefig(fig)
 
-
-def plot_surface(X, Y, Z, pdf, live=True):
+def plot_surface(X, Y, Z, pdf, projections=True, live=True):
     fig = plt.figure(figsize=plt.figaspect(0.5))
     ax = plt.axes(projection='3d')
+    
+    cs = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none')
 
-    cs = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='viridis', edgecolor='none')
+    if projections:
+        ax.contour(X, Y, Z, zdir='x', offset=ax.get_xlim()[0], cmap='viridis')
+        ax.contour(X, Y, Z, zdir='y', offset=ax.get_ylim()[1], cmap='viridis')
 
     # Angle for PDF output
     ax.view_init(45, -15)
@@ -138,13 +141,16 @@ def plot_surface(X, Y, Z, pdf, live=True):
 
     pdf.savefig(fig, bbox_inches='tight')
 
-
-def plot_wireframe(X, Y, Z, pdf):
+def plot_wireframe(X, Y, Z, pdf, projections=True):
     # Plotting
     fig = plt.figure(figsize=plt.figaspect(0.5))
     ax = plt.axes(projection='3d')
 
     ax.plot_wireframe(X, Y, Z)
+
+    if projections:
+        ax.contour(X, Y, Z, zdir='x', offset=ax.get_xlim()[0], cmap='viridis')
+        ax.contour(X, Y, Z, zdir='y', offset=ax.get_ylim()[1], cmap='viridis')
 
     # Angle for PDF output
     ax.view_init(45, -15)
