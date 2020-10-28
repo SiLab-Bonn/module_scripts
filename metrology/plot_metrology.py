@@ -1,5 +1,6 @@
 import os
 import csv
+import xlrd
 import numpy as np
 
 # This import registers the 3D projection, but is otherwise unused.
@@ -82,9 +83,26 @@ def get_data(infile):
         # angles = np.abs(np.arcsin(nn))
         # print(angles)
 
-    print(X.shape)
-    print(Y.shape)
-    print(Z.shape)
+    elif infile.split('.')[-1] == 'xlsx':
+        workbook = xlrd.open_workbook(infile)
+        worksheet = workbook.sheet_by_index(0)
+
+        x, y = [], []
+        Z = np.zeros((11, 4), dtype=float)
+        for col in range(1, 12):
+            y.append(worksheet.cell_value(1, col))
+
+            for row in range(2, 6):
+                if col == 1:
+                    x.append(worksheet.cell_value(row, 0))
+
+                Z[col - 1, row - 2] = worksheet.cell_value(row, col)
+
+        X, Y = np.meshgrid(np.array(x), np.array(y))
+
+    # print(X.shape)
+    # print(Y.shape)
+    # print(Z.shape)
     return X, Y, Z
 
 
@@ -114,7 +132,7 @@ def plot_title_page(X, Y, Z, pdf):
 def plot_surface(X, Y, Z, pdf, projections=True, live=True, colorbar=False):
     fig = plt.figure(figsize=plt.figaspect(0.5))
     ax = plt.axes(projection='3d')
-    
+
     cs = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none', alpha=0.75, shade=True)
 
     if projections:
@@ -142,6 +160,7 @@ def plot_surface(X, Y, Z, pdf, projections=True, live=True, colorbar=False):
         plt.show()
 
     pdf.savefig(fig, bbox_inches='tight')
+
 
 def plot_wireframe(X, Y, Z, pdf, projections=True):
     # Plotting
