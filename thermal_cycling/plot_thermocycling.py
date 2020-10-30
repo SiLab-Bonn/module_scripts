@@ -9,16 +9,17 @@ import matplotlib.gridspec as gridspec
 if __name__ == '__main__':
     times, data = [], []
     with open('thermocycling_temps.dat', 'r') as f:
+        f.readline()    # Remove title line
         for l in f.readlines():
-            d = l.split(', ')
+            d = l.strip().split(', ')
             times.append(datetime.fromtimestamp((float(d[0]))))
             dat = []
-            dat.append(float(d[1].split(' = ')[1]))
-            dat.append(float(d[2].split(' = ')[1]))
-            dat.append(float(d[3].split(' = ')[1]))
-
+            dat.append(float(d[1]))
+            dat.append(float(d[2]))
+            dat.append(float(d[3]))
             data.append(dat)
 
+    print(data)
 
     fig = Figure()
     FigureCanvas(fig)

@@ -2,96 +2,93 @@ import time
 import logging
 
 from basil.dut import Dut
-from weiss_labevent import WeissLabEvent
 
+LOGFILE = 'thermocycling.log'
 OUTFILE_TEMPS = 'thermocycling_temps.dat'
-OUTFILE_TIMES = 'thermocycling_times.dat'
 
+N_CYCLES = 20       # Amount of cycles to perform
+T_MIN = -40         # Minimum temperature
+T_MAX = 60          # Maximum temperature
+WAIT_TIME = 2 * 60  # Wait time at target temperature
+
+# Logging setup
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 fmt = '%(asctime)s - %(levelname)-7s %(message)s'
-logging.basicConfig(format=fmt, filename='thermocycling_test.log', filemode='w', level=logging.INFO)
+logging.basicConfig(format=fmt, filename=LOGFILE, filemode='w', level=logging.INFO)
 sh = logging.StreamHandler()
 sh.setFormatter(logging.Formatter(fmt))
 logging.root.addHandler(sh)
 
-def log_temps():
-    t_freezer = freezer.get_temperature()
-    for _ in range(10):
-        t_sens = dut['Thermohygrometer'].get_temperature(channel=0)
-        humidity = dut['Thermohygrometer'].get_humidity(channel=0)
+def acquire_temperatures():
+    t_chamber = dut['Climatechamber'].get_temperature()
+    t_sens = dut['Thermohygrometer'].get_temperature(channel=0)
+    h_sens = dut['Thermohygrometer'].get_humidity(channel=0)
 
-        if t_sens is None or humidity is None:
-            continue
-
-        if t_sens < 100. and t_sens > -90. and humidity <= 100. and humidity >= 0.:
-            break
-    else:
-        logging.error('Sensirion measurement could not be evaluated: T = {0}, rel. Hum. = {1}'.format(t_sens, humidity))
-        t_sens = t_freezer
-        humidity = 0.0
-
-    logging.info('T_freezer = {0}, T_sens = {1}, Hum = {2}'.format(t_freezer, t_sens, humidity))
+    logging.info('T_chamber = {0:1.2f}, T_sens = {1:1.2f}, Hum = {2:1.2f}'.format(t_chamber, t_sens, h_sens))
 
     with open(OUTFILE_TEMPS, 'a') as f:
-        f.write('{0}, T_freezer = {1}, T_sens = {2}, Hum = {3}\n'.format(time.time(), t_freezer, t_sens, humidity))
+        f.write('{0}, {1:1.2f}, {2:1.2f}, {3:1.2f}\n'.format(time.time(), t_chamber, t_sens, h_sens))
 
-    return t_freezer, t_sens, humidity
+    return t_chamber, t_sens, h_sens
+
+def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=30*60):
+    if overshoot:
+        if target > 0:
+            set_target = target + 10
+        else:
+            set_target = target - 10
+    else:
+        set_target = target
+
+    dut['Climatechamber'].set_temperature(set_target)
+    timestamp_start = time.time()
+    while True:
+        _, t_sens, _ = acquire_temperatures()
+        if t_sens > (target - accuracy) and t_sens < (target + accuracy):
+            logging.info('Target temperature reached on device!')
+            break
+        if time.time() - timestamp_start > timeout:
+            raise RuntimeError('Target temperature could not be reached within specified timeout!')
+
+    dut['Climatechamber'].set_temperature(target)
+    if wait_time > 0:
+        logging.info('Waiting for {0:1.0f}s at {1}°C...'.format(wait_time, target))
+        timestamp_start = time.time()
+        while True:
+            _, t_sens, _ = acquire_temperatures()
+            if t_sens < (target - accuracy) or t_sens > (target + accuracy):
+                logging.warning('Temperature on device deviated too much: Target = {0}, T_sens = {1:1.2f}'.format(target, t_sens))
+            if time.time() - timestamp_start > wait_time:
+                logging.info('Wait time over. Continuing...')
+                break
 
 if __name__ == '__main__':
-
     with open(OUTFILE_TEMPS, 'w') as f:
         pass
-    with open(OUTFILE_TIMES, 'w') as f:
-        pass
 
-    dut = Dut('sensirionEKH4_pyserial.yaml')
+    dut = Dut('thermocycling.yaml')
     dut.init()
 
-    freezer = WeissLabEvent('192.168.10.2')
-    freezer.init()
-
     logging.info('Starting run, setting start temperature to 20C...')
-    freezer.start_manual_mode()
-    freezer.go_to_temperature(20)
+    dut['Climatechamber'].start_manual_mode()
+    go_to_temperature(20, wait_time=30*60)  # Wait 30 minutes at 20°C to make sure the air is dry
+
+    # Reset data file
+    with open(OUTFILE_TEMPS, 'w') as f:
+        f.write('Timestamp, T_chamber, T_sens, Hum_sens\n')
 
     total_time_start = time.time()
     try:
-        for cycle in range(1, 21):
-            this_cycle_time_start = time.time()
+        for cycle in range(1, N_CYCLES + 1):
             logging.info('Starting cycle {}'.format(cycle))
-            
-            freezer.set_temperature(-42)
-            for _ in range(3600):
-                t_freezer, t_sens, humidity = log_temps()
-                if t_sens < -39.5:
-                    logging.info('Target temperature reached on device!')
-                    break
-                time.sleep(1)
-
-            freezer.set_temperature(62)
-            for _ in range(3600):
-                t_freezer, t_sens, humidity = log_temps()
-                if t_sens > 59.5:
-                    logging.info('Target temperature reached on device!')
-                    break
-                time.sleep(1)
-
-            freezer.set_temperature(-42)
-            for _ in range(3600):
-                t_freezer, t_sens, humidity = log_temps()
-                if t_sens < 20.5:
-                    break
-                time.sleep(1)
-
-            this_cycle_time = time.time() - this_cycle_time_start
-            logging.info('Cycle {0} completed in {1}s'.format(cycle, this_cycle_time))
-
-            with open(OUTFILE_TIMES, 'a') as f:
-                f.write('{0}\n'.format(this_cycle_time))
-    except Exception as e:
-        freezer.set_temperature(20)
-        raise e
+            logging.info('Cooling to {}'.format(T_MIN))
+            go_to_temperature(T_MIN, wait_time=WAIT_TIME, overshoot=True)
+            logging.info('Heating to {}'.format(T_MAX))
+            go_to_temperature(T_MAX, wait_time=WAIT_TIME, overshoot=True)
+    finally:
+        logging.info('Closing up. Setting temperature to 20°C.')
+        dut['Climatechamber'].set_temperature(20)
 
     total_time = time.time() - total_time_start
-    logging.info('Completed all 20 cycles in {}s'.format(total_time))
+    logging.info('Completed {0} cycles in {1:1.2f}h'.format(N_CYCLES, total_time / 3600))
