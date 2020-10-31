@@ -22,20 +22,25 @@ logging.root.addHandler(sh)
 
 def acquire_temperatures():
     t_chamber = dut['Climatechamber'].get_temperature()
+    setpoint = dut['Climatechamber'].get_temperature_setpoint()
     t_sens = dut['Thermohygrometer'].get_temperature(channel=0)
     h_sens = dut['Thermohygrometer'].get_humidity(channel=0)
 
-    logging.info('T_chamber = {0:1.2f}, T_sens = {1:1.2f}, Hum = {2:1.2f}'.format(t_chamber, t_sens, h_sens))
-
-    with open(OUTFILE_TEMPS, 'a') as f:
-        f.write('{0}, {1:1.2f}, {2:1.2f}, {3:1.2f}\n'.format(time.time(), t_chamber, t_sens, h_sens))
+    try:
+        logging.info('T_chamber = {0:1.2f}, T_sens = {1:1.2f}, Hum = {2:1.2f}'.format(t_chamber, t_sens, h_sens))
+        with open(OUTFILE_TEMPS, 'a') as f:
+            f.write('{0}, {1}, {2:1.2f}, {3:1.2f}, {4:1.2f}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens))
+    except TypeError:
+        logging.info('T_chamber = {0:1.2f}, T_sens = {1}, Hum = {2}'.format(t_chamber, t_sens, h_sens))
+        with open(OUTFILE_TEMPS, 'a') as f:
+            f.write('{0}, {1}, {2:1.2f}, {3}, {4}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens))
 
     return t_chamber, t_sens, h_sens
 
 def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=30*60):
     if overshoot:
         if target > 0:
-            set_target = target + 10
+            set_target = target + 5
         else:
             set_target = target - 10
     else:
@@ -45,7 +50,7 @@ def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=
     timestamp_start = time.time()
     while True:
         _, t_sens, _ = acquire_temperatures()
-        if t_sens > (target - accuracy) and t_sens < (target + accuracy):
+        if t_sens is not None and t_sens > (target - accuracy) and t_sens < (target + accuracy):
             logging.info('Target temperature reached on device!')
             break
         if time.time() - timestamp_start > timeout:
@@ -57,7 +62,7 @@ def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=
         timestamp_start = time.time()
         while True:
             _, t_sens, _ = acquire_temperatures()
-            if t_sens < (target - accuracy) or t_sens > (target + accuracy):
+            if t_sens is not None and (t_sens < (target - accuracy) or t_sens > (target + accuracy)):
                 logging.warning('Temperature on device deviated too much: Target = {0}, T_sens = {1:1.2f}'.format(target, t_sens))
             if time.time() - timestamp_start > wait_time:
                 logging.info('Wait time over. Continuing...')
@@ -76,7 +81,7 @@ if __name__ == '__main__':
 
     # Reset data file
     with open(OUTFILE_TEMPS, 'w') as f:
-        f.write('Timestamp, T_chamber, T_sens, Hum_sens\n')
+        f.write('#Timestamp, T_setpoint, T_chamber, T_sens, Hum_sens\n')
 
     total_time_start = time.time()
     try:
