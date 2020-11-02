@@ -77,7 +77,8 @@ if __name__ == '__main__':
 
     logging.info('Starting run, setting start temperature to 20C...')
     dut['Climatechamber'].start_manual_mode()
-    go_to_temperature(20, wait_time=30*60)  # Wait 30 minutes at 20°C to make sure the air is dry
+    dut['Climatechamber'].set_air_dryer(True) # make sure air dryer is running to avoid condensation
+    go_to_temperature(20, wait_time=30*60)  # wait 30 minutes at 20°C to make sure the air is dry
 
     # Reset data file
     with open(OUTFILE_TEMPS, 'w') as f:
@@ -95,5 +96,6 @@ if __name__ == '__main__':
         logging.info('Closing up. Setting temperature to 20°C.')
         dut['Climatechamber'].set_temperature(20)
 
+    go_to_temperature(20)
     total_time = time.time() - total_time_start
     logging.info('Completed {0} cycles in {1:1.2f}h'.format(N_CYCLES, total_time / 3600))
