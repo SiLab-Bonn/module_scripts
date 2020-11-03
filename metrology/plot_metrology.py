@@ -140,7 +140,7 @@ def get_maximum_bow(X, Y, Z):
 
     max_bow = abs(fit.item(2) - np.max(Z))
 
-    print('Max bow: {}'.format(max_bow))
+    print('Max bow: {0:1.2f}'.format(max_bow))
 
     return max_bow, fit
 
@@ -159,7 +159,7 @@ def plot_title_page(X, Y, Z, pdf, max_bow, envelope):
 
     text = 'Origin is {}.'.format(origin)
     ax.text(0.01, 0.6, text)
-    text = 'Max bow is {0}$\mu$m'.format(max_bow)
+    text = 'Max bow is {0:1.2f}$\mu$m'.format(max_bow)
     ax.text(0.01, 0.5, text)
 
     if len(envelope) > 0:
@@ -195,7 +195,7 @@ def plot_surface(X, Y, Z, pdf, plane_fit=None, projections=True, live=True, colo
         cb.set_label(r'z [$\mu$m]')
 
     # Plot fit plane
-    if fit is not None:
+    if plane_fit is not None:
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         X_p, Y_p = np.meshgrid(np.arange(xlim[0], xlim[1], int(xlim[1] / 100)), np.arange(ylim[0], ylim[1], int(ylim[1] / 100)))
@@ -203,8 +203,8 @@ def plot_surface(X, Y, Z, pdf, plane_fit=None, projections=True, live=True, colo
         Z_p = np.zeros(X_p.shape)
         for r in range(X_p.shape[0]):
             for c in range(X_p.shape[1]):
-                Z_p[r, c] = fit.item(0) * X_p[r, c] + fit.item(1) * Y_p[r, c] + fit.item(2)
-        ax.plot_wireframe(X_p, Y_p, Z_p, color='k')
+                Z_p[r, c] = plane_fit.item(0) * X_p[r, c] + plane_fit.item(1) * Y_p[r, c] + plane_fit.item(2)
+        ax.plot_wireframe(X_p, Y_p, Z_p, color='grey', linewidth=0.1, alpha=0.5)
 
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
