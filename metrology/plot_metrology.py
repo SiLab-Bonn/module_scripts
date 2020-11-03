@@ -21,6 +21,8 @@ origin = 'top left'
 
 
 def get_data(infile):
+    envelope = {}
+
     class uniqueList(list):
         def append_unique(self, val):
             if val not in self:
@@ -94,7 +96,20 @@ def get_data(infile):
 
         X, Y = np.meshgrid(np.array(x), np.array(y))
 
-    return X, Y, Z
+        sensor_heights, module_heights, sensor_thickness = [], [], []
+        for col in range(1, 12):
+            sensor_heights.append(worksheet.cell_value(7, col))
+            module_heights.append(worksheet.cell_value(8, col))
+            sensor_thickness.append(worksheet.cell_value(9, col))
+
+        module_widths = []
+        for row in range(2, 6):
+            module_widths.append(worksheet.cell_value(row, 13))
+
+        envelope = {'sensor_heights': sensor_heights, 'module_heights': module_heights, 'sensor_thickness': sensor_thickness, 'module_widths': module_widths}
+        print('Module envelope: {0:1.0f}um x {1:1.0f}um'.format(max(envelope['module_widths']), max(envelope['module_heights'])))
+
+    return X, Y, Z, envelope
 
 
 def get_maximum_bow(X, Y, Z):
@@ -130,7 +145,7 @@ def get_maximum_bow(X, Y, Z):
     return max_bow, fit
 
 
-def plot_title_page(X, Y, Z, pdf, max_bow):
+def plot_title_page(X, Y, Z, pdf, max_bow, envelope):
     fig = Figure()
     FigureCanvas(fig)
     ax = fig.add_subplot(111)
@@ -146,6 +161,17 @@ def plot_title_page(X, Y, Z, pdf, max_bow):
     ax.text(0.01, 0.6, text)
     text = 'Max bow is {0}$\mu$m'.format(max_bow)
     ax.text(0.01, 0.5, text)
+
+    if len(envelope) > 0:
+        mean_width = np.mean(envelope['module_widths'])
+        width_spread = (np.max(envelope['module_widths']) - np.min(envelope['module_widths'])) / 2
+        mean_height = np.mean(envelope['module_heights'])
+        height_spread = (np.max(envelope['module_heights']) - np.min(envelope['module_heights'])) / 2
+        mean_thickness = np.mean(envelope['sensor_thickness'])
+        thickness_spread = (np.max(envelope['sensor_thickness']) - np.min(envelope['sensor_thickness'])) / 2
+
+        text = 'Mean module width is {0:1.0f}({1:1.0f})$\mu$m, mean height is {2:1.0f}({3:1.0f})$\mu$m.\nMean thickness from chip surface to sensor backside is {4:1.0f}({5:1.0f})$\mu$m.'.format(mean_width, width_spread, mean_height, height_spread, mean_thickness, thickness_spread)
+        ax.text(0.01, 0.3, text)
 
     pdf.savefig(fig)
 
@@ -246,11 +272,11 @@ def plot_contour(X, Y, Z, pdf):
 
 
 if __name__ == '__main__':
-    X, Y, Z = get_data(in_file)
+    X, Y, Z, envelope = get_data(in_file)
     max_bow, fit = get_maximum_bow(X, Y, Z)
 
     pdf = PdfPages(os.path.join(os.path.dirname(in_file), '_'.join(os.path.split(in_file)[-1].split('.')[0:-1]) + '.pdf'))
-    plot_title_page(X, Y, Z, pdf, max_bow=max_bow)
+    plot_title_page(X, Y, Z, pdf, max_bow=max_bow, envelope=envelope)
     plot_surface(X, Y, Z, pdf, plane_fit=fit, live=True)
     plot_wireframe(X, Y, Z, pdf)
     plot_contour(X, Y, Z, pdf)
