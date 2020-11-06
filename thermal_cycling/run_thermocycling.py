@@ -104,3 +104,4 @@ if __name__ == '__main__':
     go_to_temperature(20)
     total_time = time.time() - total_time_start
     logging.info('Completed {0} cycles in {1:1.2f}h'.format(N_CYCLES, total_time / 3600))
+    dut['Climatechamber'].stop_manual_mode()
