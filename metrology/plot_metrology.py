@@ -21,6 +21,8 @@ origin = 'top left'
 
 
 def get_data(infile):
+    envelope = {}
+
     class uniqueList(list):
         def append_unique(self, val):
             if val not in self:
@@ -77,12 +79,6 @@ def get_data(infile):
 
         Z = Z.T
 
-        # Correct tilt along y-axis
-        # n = np.cross(Y - X, Z - X)
-        # nn = n / np.linalg.norm(n)
-        # angles = np.abs(np.arcsin(nn))
-        # print(angles)
-
     elif infile.split('.')[-1] == 'xlsx':
         workbook = xlrd.open_workbook(infile)
         worksheet = workbook.sheet_by_index(0)
@@ -100,13 +96,56 @@ def get_data(infile):
 
         X, Y = np.meshgrid(np.array(x), np.array(y))
 
-    # print(X.shape)
-    # print(Y.shape)
-    # print(Z.shape)
-    return X, Y, Z
+        sensor_heights, module_heights, sensor_thickness = [], [], []
+        for col in range(1, 12):
+            sensor_heights.append(worksheet.cell_value(7, col))
+            module_heights.append(worksheet.cell_value(8, col))
+            sensor_thickness.append(worksheet.cell_value(9, col))
+
+        module_widths = []
+        for row in range(2, 6):
+            module_widths.append(worksheet.cell_value(row, 13))
+
+        envelope = {'sensor_heights': sensor_heights, 'module_heights': module_heights, 'sensor_thickness': sensor_thickness, 'module_widths': module_widths}
+        print('Module envelope: {0:1.0f}um x {1:1.0f}um'.format(max(envelope['module_widths']), max(envelope['module_heights'])))
+
+    return X, Y, Z, envelope
 
 
-def plot_title_page(X, Y, Z, pdf):
+def get_maximum_bow(X, Y, Z):
+    # plane fit to corner points
+    x = np.unique(X)
+    y = np.unique(Y)
+
+    xs, ys, zs = [], [], []
+    for i_y in [0, -1]:
+        for i_x in [0, -1]:
+            xs.append(x[i_x])
+            ys.append(y[i_y])
+            zs.append(Z[i_y, i_x])
+
+    tmp_A = []
+    tmp_b = []
+    for i in range(len(x)):
+        tmp_A.append([xs[i], ys[i], 1])
+        tmp_b.append(zs[i])
+    b = np.matrix(tmp_b).T
+    A = np.matrix(tmp_A)
+    fit = (A.T * A).I * A.T * b
+    # errors = b - A * fit
+    # residual = np.linalg.norm(errors)
+
+    print('Bottom plane fit result:')
+    print('{0:1.3e} x + {1:1.3e} y + {2:1.3e} = z'.format(fit.item(0), fit.item(1), fit.item(2)))
+
+    max_bow = abs(fit.item(2) - np.max(Z))
+
+    print('Max bow: {0:1.2f}'.format(max_bow))
+
+    return max_bow, fit
+
+
+def plot_title_page(X, Y, Z, pdf, max_bow, envelope):
     fig = Figure()
     FigureCanvas(fig)
     ax = fig.add_subplot(111)
@@ -118,18 +157,26 @@ def plot_title_page(X, Y, Z, pdf):
     text = 'done with {0}.'.format(method)
     ax.text(0.01, 0.7, text, fontsize=10)
 
-    z_max = np.max(Z)
-    x_zmax = X[0][np.where(Z == z_max)[1]][0]
-    y_zmax = Y[np.where(Z == z_max)[0][0]][0]
-
     text = 'Origin is {}.'.format(origin)
     ax.text(0.01, 0.6, text)
-    text = 'Max elevation is {0}$\mu$m at (x={1}mm, y={2}mm)'.format(z_max, x_zmax, y_zmax)
+    text = 'Max bow is {0:1.2f}$\mu$m'.format(max_bow)
     ax.text(0.01, 0.5, text)
+
+    if len(envelope) > 0:
+        mean_width = np.mean(envelope['module_widths'])
+        width_spread = (np.max(envelope['module_widths']) - np.min(envelope['module_widths'])) / 2
+        mean_height = np.mean(envelope['module_heights'])
+        height_spread = (np.max(envelope['module_heights']) - np.min(envelope['module_heights'])) / 2
+        mean_thickness = np.mean(envelope['sensor_thickness'])
+        thickness_spread = (np.max(envelope['sensor_thickness']) - np.min(envelope['sensor_thickness'])) / 2
+
+        text = 'Mean module width is {0:1.0f}({1:1.0f})$\mu$m, mean height is {2:1.0f}({3:1.0f})$\mu$m.\nMean thickness from chip surface to sensor backside is {4:1.0f}({5:1.0f})$\mu$m.'.format(mean_width, width_spread, mean_height, height_spread, mean_thickness, thickness_spread)
+        ax.text(0.01, 0.3, text)
 
     pdf.savefig(fig)
 
-def plot_surface(X, Y, Z, pdf, projections=True, live=True, colorbar=False):
+
+def plot_surface(X, Y, Z, pdf, plane_fit=None, projections=True, live=True, colorbar=False):
     fig = plt.figure(figsize=plt.figaspect(0.5))
     ax = plt.axes(projection='3d')
 
@@ -145,11 +192,23 @@ def plot_surface(X, Y, Z, pdf, projections=True, live=True, colorbar=False):
 
     if colorbar:
         cb = fig.colorbar(cs, shrink=0.75, aspect=50, orientation='horizontal')
-        cb.set_label('z [$\mu$m]')
+        cb.set_label(r'z [$\mu$m]')
+
+    # Plot fit plane
+    if plane_fit is not None:
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        X_p, Y_p = np.meshgrid(np.arange(xlim[0], xlim[1], int(xlim[1] / 100)), np.arange(ylim[0], ylim[1], int(ylim[1] / 100)))
+
+        Z_p = np.zeros(X_p.shape)
+        for r in range(X_p.shape[0]):
+            for c in range(X_p.shape[1]):
+                Z_p[r, c] = plane_fit.item(0) * X_p[r, c] + plane_fit.item(1) * Y_p[r, c] + plane_fit.item(2)
+        ax.plot_wireframe(X_p, Y_p, Z_p, color='grey', linewidth=0.1, alpha=0.5)
 
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
-    ax.set_zlabel('z [$\mu$m]')
+    ax.set_zlabel(r'z [$\mu$m]')
 
     ax.set_title(module_name)
 
@@ -213,10 +272,12 @@ def plot_contour(X, Y, Z, pdf):
 
 
 if __name__ == '__main__':
-    X, Y, Z = get_data(in_file)
+    X, Y, Z, envelope = get_data(in_file)
+    max_bow, fit = get_maximum_bow(X, Y, Z)
+
     pdf = PdfPages(os.path.join(os.path.dirname(in_file), '_'.join(os.path.split(in_file)[-1].split('.')[0:-1]) + '.pdf'))
-    plot_title_page(X, Y, Z, pdf)
-    plot_surface(X, Y, Z, pdf, live=True)
+    plot_title_page(X, Y, Z, pdf, max_bow=max_bow, envelope=envelope)
+    plot_surface(X, Y, Z, pdf, plane_fit=fit, live=True)
     plot_wireframe(X, Y, Z, pdf)
     plot_contour(X, Y, Z, pdf)
 
