@@ -7,8 +7,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib.gridspec as gridspec
 
 if __name__ == '__main__':
-    times = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': []}
-    data = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': []}
+    times = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_air': [], 'h_air': []}
+    data = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_air': [], 'h_air': []}
     with open('thermocycling_temps.dat', 'r') as f:
         f.readline()    # Remove title line
         for l in f.readlines():
@@ -28,6 +28,14 @@ if __name__ == '__main__':
             if 'None' not in h_sens:
                 times['h_sens'].append(ts)
                 data['h_sens'].append(float(h_sens))
+            t_air = d[5].strip()
+            if 'None' not in t_air:
+                times['t_air'].append(ts)
+                data['t_air'].append(float(t_air))
+            h_air = d[6].strip()
+            if 'None' not in h_air:
+                times['h_air'].append(ts)
+                data['h_air'].append(float(h_air))
 
     fig = Figure()
     FigureCanvas(fig)
@@ -42,6 +50,7 @@ if __name__ == '__main__':
     ax.plot(times['t_sens'], data['t_sens'], label='T_sens', color='C1')
 
     ax2.plot(times['h_sens'], data['h_sens'], color='C2', label='Hum_sens')
+    ax2.plot(times['h_air'], data['h_air'], color='C3', label='Hum_air')
 
     xfmt = md.DateFormatter('%d %H:%M')
     ax2.xaxis.set_major_formatter(xfmt)
