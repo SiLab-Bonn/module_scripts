@@ -25,20 +25,21 @@ def acquire_temperatures():
     setpoint = dut['Climatechamber'].get_temperature_setpoint()
     t_sens = dut['Thermohygrometer'].get_temperature(channel=0)
     h_sens = dut['Thermohygrometer'].get_humidity(channel=0)
-
+    t_mod = dut['Thermohygrometer'].get_temperature(channel=1)
+    h_mod = dut['Thermohygrometer'].get_humidity(channel=1)
     t_air = dut['Thermohygrometer'].get_temperature(channel=3)
     h_air = dut['Thermohygrometer'].get_humidity(channel=3)
 
     try:
-        logging.info('T_chamber = {0:1.2f}, T_sens = {1:1.2f}, Hum_sens = {2:1.2f}, T_air = {3:1.2f}, Hum_air = {4:1.2f}'.format(t_chamber, t_sens, h_sens, t_air, h_air))
+        logging.info('T_ch = {0:1.2f}, T_sns = {1:1.2f}, Hum_sns = {2:1.2f}, T_mod = {3:1.2f}, H_mod = {4:1.2f}, T_air = {5:1.2f}, H_air = {6:1.2f}'.format(t_chamber, t_sens, h_sens, t_mod, h_mod, t_air, h_air))
         with open(OUTFILE_TEMPS, 'a') as f:
-            f.write('{0}, {1}, {2:1.2f}, {3:1.2f}, {4:1.2f}, {5:1.2f}, {6:1.2f}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens, t_air, h_air))
+            f.write('{0}, {1}, {2:1.2f}, {3:1.2f}, {4:1.2f}, {5:1.2f}, {6:1.2f}, {7:1.2f}, {8:1.2f}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens, t_mod, h_mod, t_air, h_air))
     except TypeError:
-        logging.info('T_chamber = {0:1.2f}, T_sens = {1}, Hum_sens = {2}, T_air = {3}, Hum_air = {4}'.format(t_chamber, t_sens, h_sens, t_air, h_air))
+        logging.info('T_ch = {0:1.2f}, T_sns = {1}, H_sns = {2}, T_mod = {3}, H_mod = {4}, T_air = {5}, Hum_air = {6}'.format(t_chamber, t_sens, h_sens, t_mod, h_mod, t_air, h_air))
         with open(OUTFILE_TEMPS, 'a') as f:
-            f.write('{0}, {1}, {2:1.2f}, {3}, {4}, {5}, {6}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens, t_air, h_air))
+            f.write('{0}, {1}, {2:1.2f}, {3}, {4}, {5}, {6}, {7}, {8}\n'.format(time.time(), setpoint, t_chamber, t_sens, h_sens, t_mod, h_mod, t_air, h_air))
 
-    return t_chamber, t_sens, h_sens, t_air, h_air
+    return t_chamber, t_sens, h_sens, t_mod, h_mod, t_air, h_air
 
 def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=30*60):
     if overshoot:
@@ -52,7 +53,7 @@ def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=
     dut['Climatechamber'].set_temperature(set_target)
     timestamp_start = time.time()
     while True:
-        _, t_sens, _, _, h_air = acquire_temperatures()
+        _, t_sens, _, _, _, _, h_air = acquire_temperatures()
         # TODO interlock on air humidity?
         if t_sens is not None and t_sens > (target - accuracy) and t_sens < (target + accuracy):
             logging.info('Target temperature reached on device!')
@@ -65,7 +66,7 @@ def go_to_temperature(target, wait_time=0, overshoot=False, accuracy=1, timeout=
         logging.info('Waiting for {0:1.0f}s at {1}°C...'.format(wait_time, target))
         timestamp_start = time.time()
         while True:
-            _, t_sens, _, _, h_air = acquire_temperatures()
+            _, t_sens, _, _, _, _, h_air = acquire_temperatures()
             # TODO interlock on air humidity?
             if t_sens is not None and (t_sens < (target - accuracy) or t_sens > (target + accuracy)):
                 logging.warning('Temperature on device deviated too much: Target = {0}, T_sens = {1:1.2f}'.format(target, t_sens))
@@ -83,11 +84,11 @@ if __name__ == '__main__':
     logging.info('Starting run, setting start temperature to 20C...')
     dut['Climatechamber'].start_manual_mode()
     dut['Climatechamber'].set_air_dryer(True) # make sure air dryer is running to avoid condensation
-    go_to_temperature(20, wait_time=30*60)  # wait 30 minutes at 20°C to make sure the air is dry
+    go_to_temperature(20, wait_time=3*60*60)  # wait 3h at 20°C to make sure the air is dry
 
     # Reset data file
     with open(OUTFILE_TEMPS, 'w') as f:
-        f.write('#Timestamp, T_setpoint, T_chamber, T_sens, Hum_sens, T_air, Hum_air\n')
+        f.write('#Timestamp, T_setpoint, T_chamber, T_sens, Hum_sens, T_mod, Hum_mod, T_air, Hum_air\n')
 
     total_time_start = time.time()
     try:
