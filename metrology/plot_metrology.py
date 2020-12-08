@@ -12,12 +12,18 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import matplotlib.ticker as tkr
 
 in_file = ''
 module_name = 'ASD 15-3-C4'
 method = 'Mitutoyo Measuring Microscope'
 # method = 'ZW RFM'
 origin = 'top left'
+
+
+def um_to_mm(x, pos):
+    s = '{}'.format(x / 1000.0)
+    return s
 
 
 def get_data(infile):
@@ -59,8 +65,8 @@ def get_data(infile):
             x, y = uniqueList(), uniqueList()
             for line in f.readlines():
                 vals = [float(v) for v in line.split(' ')]
-                vals[0] = round(vals[0], 0)
-                vals[1] = round(vals[1], 0)
+                vals[0] = round(vals[0], 0) * 1e3
+                vals[1] = round(vals[1], 0) * 1e3
                 x.append_unique(vals[1])
                 y.append_unique(vals[0])
                 all_values.append(vals)
@@ -92,7 +98,10 @@ def get_data(infile):
                 if col == 1:
                     x.append(worksheet.cell_value(row, 0))
 
-                Z[col - 1, row - 2] = worksheet.cell_value(row, col)
+                try:
+                    Z[col - 1, row - 2] = worksheet.cell_value(row, col)
+                except ValueError:
+                    Z[col - 1, row - 2] = np.nan
 
         X, Y = np.meshgrid(np.array(x), np.array(y))
 
@@ -101,13 +110,17 @@ def get_data(infile):
             sensor_heights.append(worksheet.cell_value(7, col))
             module_heights.append(worksheet.cell_value(8, col))
             sensor_thickness.append(worksheet.cell_value(9, col))
+        sensor_heights = [np.nan if x == '' else x for x in sensor_heights]
+        module_heights = [np.nan if x == '' else x for x in module_heights]
+        sensor_thickness = [np.nan if x == '' else x for x in sensor_thickness]
 
         module_widths = []
         for row in range(2, 6):
             module_widths.append(worksheet.cell_value(row, 13))
+        module_widths = [np.nan if x == '' else x for x in module_widths]
 
-        envelope = {'sensor_heights': sensor_heights, 'module_heights': module_heights, 'sensor_thickness': sensor_thickness, 'module_widths': module_widths}
-        print('Module envelope: {0:1.0f}um x {1:1.0f}um'.format(max(envelope['module_widths']), max(envelope['module_heights'])))
+        envelope = {'sensor_heights': np.array(sensor_heights, dtype=float), 'module_heights': np.array(module_heights, dtype=float), 'sensor_thickness': np.array(sensor_thickness, dtype=float), 'module_widths': np.array(module_widths, dtype=float)}
+        print('Module envelope: {0:1.0f} um x {1:1.0f} um'.format(np.max(envelope['module_widths']), np.max(envelope['module_heights'])))
 
     return X, Y, Z, envelope
 
@@ -126,7 +139,7 @@ def get_maximum_bow(X, Y, Z):
 
     tmp_A = []
     tmp_b = []
-    for i in range(len(x)):
+    for i in range(4):
         tmp_A.append([xs[i], ys[i], 1])
         tmp_b.append(zs[i])
     b = np.matrix(tmp_b).T
@@ -206,6 +219,8 @@ def plot_surface(X, Y, Z, pdf, plane_fit=None, projections=True, live=True, colo
                 Z_p[r, c] = plane_fit.item(0) * X_p[r, c] + plane_fit.item(1) * Y_p[r, c] + plane_fit.item(2)
         ax.plot_wireframe(X_p, Y_p, Z_p, color='grey', linewidth=0.1, alpha=0.5)
 
+    ax.get_yaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
+    ax.get_xaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
     ax.set_zlabel(r'z [$\mu$m]')
@@ -236,6 +251,8 @@ def plot_wireframe(X, Y, Z, pdf, projections=True):
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
     # ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]]*3)
 
+    ax.get_yaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
+    ax.get_xaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
     ax.set_zlabel('z [$\mu$m]')
@@ -262,6 +279,8 @@ def plot_contour(X, Y, Z, pdf):
 
     cb = fig.colorbar(cs, shrink=0.75, orientation='horizontal')
 
+    ax.get_yaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
+    ax.get_xaxis().set_major_formatter(tkr.FuncFormatter(um_to_mm))
     ax.set_xlabel('y [mm]')
     ax.set_ylabel('x [mm]')
     cb.set_label('z [$\mu$m]')
