@@ -18,7 +18,7 @@ T_MIN = -40         # Minimum temperature
 T_MAX = 60          # Maximum temperature
 WAIT_TIME = 2 * 60  # Wait time at target temperature
 
-CYCLE_START = 10
+CYCLE_START = 1
 
 TESTBENCH = '/home/silab/git/bdaq53/bdaq53/testbench.yaml'
 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     logging.info('Starting run, setting start temperature to 20C...')
     dut['Climatechamber'].start_manual_mode()
     dut['Climatechamber'].set_air_dryer(True) # make sure air dryer is running to avoid condensation
-    # go_to_temperature(20, wait_time=3*60*60)  # wait 3h at 20°C to make sure the air is dry
+    go_to_temperature(20, wait_time=3*60*60)  # wait 3h at 20°C to make sure the air is dry
 
     # Make sure chip is powered off before starting cycle
     periphery = BDAQ53Periphery()
