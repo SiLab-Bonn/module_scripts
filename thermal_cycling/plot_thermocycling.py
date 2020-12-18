@@ -7,8 +7,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib.gridspec as gridspec
 
 if __name__ == '__main__':
-    times = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_air': [], 'h_air': []}
-    data = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_air': [], 'h_air': []}
+    times = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_mod': [], 'h_mod': [], 't_air': [], 'h_air': []}
+    data = {'t_setp': [], 't_chamber': [], 't_sens': [], 'h_sens': [], 't_mod': [], 'h_mod': [], 't_air': [], 'h_air': []}
     with open('thermocycling_temps.dat', 'r') as f:
         f.readline()    # Remove title line
         for l in f.readlines():
@@ -28,11 +28,19 @@ if __name__ == '__main__':
             if 'None' not in h_sens:
                 times['h_sens'].append(ts)
                 data['h_sens'].append(float(h_sens))
-            t_air = d[5].strip()
+            t_mod = d[5].strip()
+            if 'None' not in t_mod:
+                times['t_mod'].append(ts)
+                data['t_mod'].append(float(t_mod))
+            h_mod = d[6].strip()
+            if 'None' not in h_mod:
+                times['h_mod'].append(ts)
+                data['h_mod'].append(float(h_mod))
+            t_air = d[7].strip()
             if 'None' not in t_air:
                 times['t_air'].append(ts)
                 data['t_air'].append(float(t_air))
-            h_air = d[6].strip()
+            h_air = d[8].strip()
             if 'None' not in h_air:
                 times['h_air'].append(ts)
                 data['h_air'].append(float(h_air))
@@ -48,6 +56,7 @@ if __name__ == '__main__':
     ax.plot(times['t_setp'], data['t_setp'], label='T_setpoint', color='gray')
     ax.plot(times['t_chamber'], data['t_chamber'], label='T_chamber', color='C0')
     ax.plot(times['t_sens'], data['t_sens'], label='T_sens', color='C1')
+    ax.plot(times['t_mod'], data['t_mod'], label='T_mod', color='C2')
 
     ax2.plot(times['h_sens'], data['h_sens'], color='C2', label='Hum_sens')
     ax2.plot(times['h_air'], data['h_air'], color='C3', label='Hum_air')
