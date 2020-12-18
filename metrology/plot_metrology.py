@@ -92,30 +92,30 @@ def get_data(infile):
         x, y = [], []
         Z = np.zeros((11, 4), dtype=float)
         for col in range(1, 12):
-            y.append(worksheet.cell_value(1, col))
+            y.append(worksheet.cell_value(2, col))
 
-            for row in range(2, 6):
+            for row in range(3, 7):
                 if col == 1:
                     x.append(worksheet.cell_value(row, 0))
 
                 try:
-                    Z[col - 1, row - 2] = worksheet.cell_value(row, col)
+                    Z[col - 1, row - 3] = worksheet.cell_value(row, col)
                 except ValueError:
-                    Z[col - 1, row - 2] = np.nan
+                    Z[col - 1, row - 3] = np.nan
 
         X, Y = np.meshgrid(np.array(x), np.array(y))
 
         sensor_heights, module_heights, sensor_thickness = [], [], []
         for col in range(1, 12):
-            sensor_heights.append(worksheet.cell_value(7, col))
-            module_heights.append(worksheet.cell_value(8, col))
-            sensor_thickness.append(worksheet.cell_value(9, col))
+            sensor_heights.append(worksheet.cell_value(8, col))
+            module_heights.append(worksheet.cell_value(9, col))
+            sensor_thickness.append(worksheet.cell_value(10, col))
         sensor_heights = [np.nan if x == '' else x for x in sensor_heights]
         module_heights = [np.nan if x == '' else x for x in module_heights]
         sensor_thickness = [np.nan if x == '' else x for x in sensor_thickness]
 
         module_widths = []
-        for row in range(2, 6):
+        for row in range(3, 7):
             module_widths.append(worksheet.cell_value(row, 13))
         module_widths = [np.nan if x == '' else x for x in module_widths]
 
