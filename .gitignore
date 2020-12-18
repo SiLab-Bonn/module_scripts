@@ -133,3 +133,5 @@ dmypy.json
 *.log
 *.dat
 *.pdf
+
+*/output_data/*
